@@ -1,7 +1,7 @@
 WITH history AS (
     SELECT *,
            LAG(`close`) OVER (PARTITION BY `Name` ORDER BY `date`) AS previous_close
-    FROM stock_prices
+    FROM stock_prices_valid
 ), selected AS (
     SELECT *,
            `close` / NULLIF(previous_close, 0) - 1 AS daily_return,

@@ -8,7 +8,7 @@ WITH history AS (
                ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS observations20,
            COUNT(`close`) OVER (PARTITION BY `Name` ORDER BY `date`
                ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS observations60
-    FROM stock_prices
+    FROM stock_prices_valid
     WHERE `Name` = :symbol
 )
 SELECT `date`, `Name`, `close`, volume,

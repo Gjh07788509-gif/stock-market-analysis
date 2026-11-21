@@ -32,8 +32,22 @@ def query(filename, parameters=None):
 
 try:
     quality = query("quality.sql")
-except Exception:
+except Exception as error:
     st.error("数据库连接或查询失败。请检查 MySQL 服务、连接配置、版本及 stock_prices 表。")
+    original = getattr(error, "orig", error)
+    arguments = getattr(original, "args", ())
+    code = arguments[0] if arguments and isinstance(arguments[0], int) else None
+    hints = {
+        1045: "账号或密码不正确，或该用户没有连接权限。请核对 DataGrip 的连接设置。",
+        1044: "当前用户没有访问 stock_analysis 数据库的权限。",
+        1049: "连接地址中的数据库不存在。请核对数据库名称。",
+        1146: "找不到 stock_prices 表。请确认已导入，并核对表名。",
+        1054: "数据表字段与项目不一致。需要 date、Name、open、high、low、close、volume。",
+        1064: "SQL 语法错误。请检查 MySQL 版本及 sql/quality.sql。",
+        2003: "无法连接 MySQL。请检查服务是否启动，以及主机、端口是否正确。",
+    }
+    st.info(hints.get(code, "请在 DataGrip 中执行 sql/quality.sql，查看具体查询错误。"))
+    st.caption(f"错误类型：{type(original).__name__}；错误码：{code if code is not None else '无'}")
     st.stop()
 if quality.iloc[0]["row_count"] == 0:
     st.warning("stock_prices 表为空，请先导入 CSV。")
@@ -42,11 +56,20 @@ if quality.iloc[0]["row_count"] == 0:
 overview = quality.iloc[0]
 st.write(f"数据范围：{overview['first_date']} 至 {overview['last_date']}")
 st.dataframe(quality, hide_index=True)
-if overview["duplicate_pairs"] > 0 or overview["invalid_rows"] > 0:
-    st.error("存在重复股票日期或异常行情，请先检查原始数据再计算指标。")
+if overview["duplicate_pairs"] > 0:
+    st.error("存在重复股票日期，请先检查原始数据。")
     st.stop()
-if overview["incomplete_rows"] > 0:
-    st.warning("存在缺失字段，收益与风险指标可能不完整；请结合数据质量报告解释结果。")
+try:
+    with engine.connect() as connection:
+        valid_count = connection.execute(text("SELECT COUNT(*) FROM stock_prices_valid")).scalar_one()
+except Exception:
+    st.error("请在 DataGrip 中选择 stock_analysis，执行 sql/clean.sql 创建清洗视图，再刷新页面。")
+    st.stop()
+st.caption(f"用于分析：{valid_count:,} 条；排除缺失或异常记录：{int(overview['row_count']) - valid_count:,} 条。原表保留不变。")
+if valid_count == 0:
+    st.warning("没有可用于分析的完整有效行情。")
+    st.stop()
+st.caption("收益按相邻有效记录计算；若中间记录被排除，收益可能跨越多个交易日，年化波动率仅作近似参考。")
 start_date = st.sidebar.date_input("开始日期", pd.Timestamp(overview["first_date"]).date())
 end_date = st.sidebar.date_input("结束日期", pd.Timestamp(overview["last_date"]).date())
 if start_date > end_date:

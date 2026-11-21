@@ -2,7 +2,7 @@ WITH ranked AS (
     SELECT `Name`, `date`, `close`, EXTRACT(YEAR_MONTH FROM `date`) AS month,
            ROW_NUMBER() OVER (PARTITION BY `Name`, EXTRACT(YEAR_MONTH FROM `date`)
                ORDER BY `date` DESC) AS position
-    FROM stock_prices
+    FROM stock_prices_valid
 ), month_ends AS (
     SELECT `Name`, month, `close` AS month_end_close,
            LAG(`close`) OVER (PARTITION BY `Name` ORDER BY month) AS previous_month_close

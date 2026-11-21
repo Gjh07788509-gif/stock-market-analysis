@@ -42,6 +42,8 @@ $env:DATABASE_URL = 'mysql+pymysql://YOUR_USER:URL_ENCODED_PASSWORD@localhost:33
 
 如果已经通过 DataGrip 导入同名表，字段一致即可跳过导入命令。先检查 `(Name, date)` 是否重复；导入脚本只向空表写入，表里已有数据时会停止。
 
+导入完成后，在 DataGrip 中选择 `stock_analysis`，执行 `sql/clean.sql` 的全部内容，再刷新看板。该脚本创建 `stock_prices_valid` 视图，过滤缺失字段、非正价格、负成交量及最高最低价关系异常的记录，原表不变。可以重复执行，原表有更新时视图自动反映。之前手动创建的 `stock_prices_clean` 表无需使用。
+
 ## 文件说明
 
 1. `sql/schema.sql`：定义字段类型及股票代码、日期的联合主键。
@@ -49,6 +51,7 @@ $env:DATABASE_URL = 'mysql+pymysql://YOUR_USER:URL_ENCODED_PASSWORD@localhost:33
 3. `sql/metrics.sql`：CTE、LAG、ROW_NUMBER 和滚动 MAX 计算收益、波动、回撤。
 4. `sql/prices.sql`：计算均线及单只股票的累计价格收益与回撤。
 5. `sql/monthly.sql`：提取各月最后一个交易日，以前月末为基准计算月收益，并排名。
+6. `sql/clean.sql`：创建有效行情视图，供收益、均线和排名查询使用；质量报告仍检查原表。
 
 SQL 中的 `:start_date` 等参数由 SQLAlchemy 传入。在 DataGrip 中直接执行时，可替换成具体日期，如 `'2017-01-01'`。
 
@@ -62,6 +65,8 @@ SQL 中的 `:start_date` 等参数由 SQLAlchemy 传入。在 DataGrip 中直接
 - 月收益：本月最后交易日收盘价 / 数据中前一个有记录月份的月末收盘价 − 1；数据缺月时应先调查，不能直接视作相邻自然月收益。
 
 缺失价格保留为 NULL，不填零。SQL 聚合会忽略部分 NULL，因此缺失值较多的股票需要先排查再解释其指标。交易日期不连续可能来自节假日、停牌、上市时间或数据缺失，不能简单把所有自然日补成交易日。
+
+分析查询会排除缺失或异常记录，页面同时显示原始质量报告与排除数量。排除后相邻有效记录可能不再是相邻交易日，因此部分收益跨越多个交易日；按 √252 计算的年化波动率仅作近似参考。月末价格也可能取到过滤后更早的有效日期。
 
 ## 测试
 
