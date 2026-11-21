@@ -1,0 +1,5 @@
+pandas>=2.2,<3
+SQLAlchemy>=2.0,<3
+PyMySQL[rsa]>=1.1,<2
+streamlit>=1.40,<2
+plotly>=5.24,<7
